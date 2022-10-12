@@ -54,11 +54,16 @@ import com.qualcomm.robotcore.util.Range;
 
 @TeleOp(name="Mecanum Teleop", group="Linear Opmode")
 
-public class MecanumWheelsOpMode extends LinearOpMode {
+public class Teleop extends LinearOpMode {
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
-   
+    static final double     COUNTS_PER_MOTOR_REV    = 537.7 ;    // eg: TETRIX Motor Encoder
+    static final double     DRIVE_GEAR_REDUCTION    = 1.0 ;
+    static final double     WHEEL_DIAMETER_INCHES   = 50.0 / 25.4 ;     // 100 mm converted to inches For figuring circumference
+    static final double     COUNTS_PER_INCH         = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
+          (WHEEL_DIAMETER_INCHES * Math.PI);
+
         
 
     @Override
@@ -67,14 +72,9 @@ public class MecanumWheelsOpMode extends LinearOpMode {
         DcMotor motorBackLeft = hardwareMap.dcMotor.get("backLeft");
         DcMotor motorFrontRight = hardwareMap.dcMotor.get("frontRight");
         DcMotor motorBackRight = hardwareMap.dcMotor.get("backRight");
-        DcMotor  arm     = hardwareMap.dcMotor.get("arm");
-         DcMotor  LED     = hardwareMap.dcMotor.get("LED");
-        final double ARM_UP_POWER = 0.4;
-        final double ARM_DOWN_POWER = -0.4;
         
-        Servo    claw    = hardwareMap.servo.get("servo");  
-        final double CLAW_OPEN = 0.0;
-        final double CLAW_CLOSED =0.5;
+        MecanumRobot robot = new MecanumRobot();
+        robot.init(hardwareMap, this);
         
         telemetry.addData("Status", "Initialized");
         telemetry.update();
@@ -105,26 +105,7 @@ public class MecanumWheelsOpMode extends LinearOpMode {
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
             
-            // Use gamepad left & right Bumpers to open and close the claw
-            if (gamepad1.right_bumper)
-                claw.setPosition(CLAW_OPEN);
-            else if (gamepad1.left_bumper)
-                claw.setPosition(CLAW_CLOSED);
-            // Use gamepad buttons to move the arm up (Y) and down (A)
-            if (gamepad1.y)
-                arm.setPower(ARM_UP_POWER);
-            else if (gamepad1.a)
-                arm.setPower(ARM_DOWN_POWER);
-            else
-                arm.setPower(0.0);
-
-             if (gamepad1.b)
-                LED.setPower(1.0);
-            else 
-                LED.setPower(0.0);
-               
           
-            
             double r = Math.hypot(-gamepad1.left_stick_x, gamepad1.left_stick_y);
             double robotAngle = Math.atan2(gamepad1.left_stick_y, -gamepad1.left_stick_x) - Math.PI / 4;
             double rightX = gamepad1.right_stick_x;
@@ -134,11 +115,16 @@ public class MecanumWheelsOpMode extends LinearOpMode {
             final double v4 = r * Math.cos(robotAngle) - rightX;
             
             
-        
+            
             motorFrontLeft.setPower(v1);
             motorFrontRight.setPower(v2);
             motorBackLeft.setPower(v3);
             motorBackRight.setPower(v4);
+            
+            if(gamepad1.a){
+                robot.moveArm(30);
+                
+            }
             
             
             
