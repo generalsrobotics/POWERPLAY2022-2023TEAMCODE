@@ -30,8 +30,9 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.LED;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -42,98 +43,118 @@ import com.qualcomm.robotcore.util.Range;
 /**
  * This file contains an minimal example of a Linear "OpMode". An OpMode is a 'program' that runs in either
  * the autonomous or the teleop period of an FTC match. The names of OpModes appear on the menu
- * of the FTC Driver Station. When an selection is made from the menu, the corresponding OpMode
+ * of the FTC Driver Station. When a selection is made from the menu, the corresponding OpMode
  * class is instantiated on the Robot Controller and executed.
  *
  * This particular OpMode just executes a basic Tank Drive Teleop for a two wheeled robot
  * It includes all the skeletal structure that all linear OpModes contain.
  *
- * Use Android Studios to Copy this Class, and Paste it into your team's code folder with a new name.
+ * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@TeleOp(name="Mecanum Teleop", group="Linear Opmode")
+@TeleOp(name="Basic: Linear OpMode", group="Linear Opmode")
 
 public class Teleop extends LinearOpMode {
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
-    static final double     COUNTS_PER_MOTOR_REV    = 537.7 ;    // eg: TETRIX Motor Encoder
-    static final double     DRIVE_GEAR_REDUCTION    = 1.0 ;
-    static final double     WHEEL_DIAMETER_INCHES   = 50.0 / 25.4 ;     // 100 mm converted to inches For figuring circumference
-    static final double     COUNTS_PER_INCH         = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
-          (WHEEL_DIAMETER_INCHES * Math.PI);
-
-        
+    public DcMotor  frontLeft   = null;
+    public DcMotor  frontRight  = null;
+    public DcMotor  backLeft   = null;
+    public DcMotor  arm = null;
+    public DcMotor  backRight  = null;
+    public Servo servo;
 
     @Override
     public void runOpMode() {
-        DcMotor motorFrontLeft = hardwareMap.dcMotor.get("frontLeft");
-        DcMotor motorBackLeft = hardwareMap.dcMotor.get("backLeft");
-        DcMotor motorFrontRight = hardwareMap.dcMotor.get("frontRight");
-        DcMotor motorBackRight = hardwareMap.dcMotor.get("backRight");
-        
-        MecanumRobot robot = new MecanumRobot();
-        robot.init(hardwareMap, this);
-        
         telemetry.addData("Status", "Initialized");
         telemetry.update();
+        
+        
 
         // Initialize the hardware variables. Note that the strings used here as parameters
         // to 'get' must correspond to the names assigned during the robot configuration
         // step (using the FTC Robot Controller app on the phone).
-        //leftDrive  = hardwareMap.get(DcMotor.class, "left_drive");
-       // rightDrive = hardwareMap.get(DcMotor.class, "right_drive");
+       
 
-        // Most robots need the motor on one side to be reversed to drive forward
-        // Reverse the motor that runs backwards when connected directly to the battery
-      /*  motorFrontLeft.setDirection(DcMotor.Direction.FORWARD);
-        motorBackLeft.setDirection(DcMotor.Direction.FORWARD);
+        // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
+        // Pushing the left stick forward MUST make robot go forward. So adjust these two lines based on your first test drive.
+        // Note: The settings here assume direct drive on left and right wheels.  Gear Reduction or 90 Deg drives may require direction flips
+        
+        
+         MecanumRobot robot = new MecanumRobot();
+        // robot.init(hardwareMap, this);
+        
+        //DeviceMap map = new DeviceMap(hardwareMap);
+        
+        frontLeft = hardwareMap.get(DcMotor.class,"frontLeft");
+        backLeft = hardwareMap.get(DcMotor.class,"backLeft");
+        frontRight = hardwareMap.get(DcMotor.class,"frontRight");
+        backRight = hardwareMap.get(DcMotor.class,"backRight");
+        
+        arm = hardwareMap.get(DcMotor.class,"Arm");
+        
+        servo = hardwareMap.get(Servo.class, "claw");
 
-
-        motorFrontRight.setDirection(DcMotor.Direction.REVERSE);
-        motorFrontLeft.setDirection(DcMotor.Direction.REVERSE);
-
-*/
-        motorFrontRight.setDirection(DcMotor.Direction.REVERSE);
-        motorBackRight.setDirection(DcMotor.Direction.REVERSE);
+        frontLeft.setDirection(DcMotor.Direction.REVERSE);
+        backLeft.setDirection(DcMotor.Direction.REVERSE);
 
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
         runtime.reset();
+        
+                    servo.setPosition(.4);
+
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
+
+            // Setup a variable for each drive wheel to save power level for telemetry
+            double y = -gamepad1.left_stick_y ; // Remember, this is reversed!
+            double x = gamepad1.left_stick_x * 1.1; // Counteract imperfect strafing
+            double rx = gamepad1.right_stick_x;
+
+            // Denominator is the largest motor power (absolute value) or 1
+            // This ensures all the powers maintain the same ratio, but only when
+            // at least one is out of the range [-1, 1]
+            double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
+            double frontLeftPower = (y + x + rx) / denominator;
+            double backLeftPower = (y - x + rx) / denominator;
+            double frontRightPower = (y - x - rx) / denominator;
+            double backRightPower = (y + x - rx) / denominator;
+
+            frontLeft.setPower(frontLeftPower*.70);
+            backLeft.setPower(backLeftPower* .70);
+            frontRight.setPower(frontRightPower *.70);
+            backRight.setPower(backRightPower* .70);
             
-          
-            double r = Math.hypot(-gamepad1.left_stick_x, gamepad1.left_stick_y);
-            double robotAngle = Math.atan2(gamepad1.left_stick_y, -gamepad1.left_stick_x) - Math.PI / 4;
-            double rightX = gamepad1.right_stick_x;
-            final double v1 = r * Math.cos(robotAngle) + rightX;
-            final double v2 = r * Math.sin(robotAngle) - rightX;
-            final double v3 = r * Math.sin(robotAngle) + rightX;
-            final double v4 = r * Math.cos(robotAngle) - rightX;
-            
-            
-            
-            motorFrontLeft.setPower(v1);
-            motorFrontRight.setPower(v2);
-            motorBackLeft.setPower(v3);
-            motorBackRight.setPower(v4);
-            
-            if(gamepad1.a){
-                robot.moveArm(30);
-                
-            }
-            
-            
-            
+            arm.setPower(-gamepad2.left_stick_y);
+
+           if(gamepad2.left_bumper)
+            servo.setPosition(.4);
+            else if(gamepad2.right_bumper)
+            servo.setPosition(5);
 
 
-            // Show the elapsed game time and wheel power.
-            telemetry.addData("Status", "Run Time: " + runtime.toString());
-            telemetry.addData("Motors", "left (%.2f), right (%.2f)");
-            telemetry.update();
+        
+            
+
+            
+            /*
+            // Open and close claw
+            if(gamepad2.left_bumper)
+                robot.closeClaw();
+            
+            if(gamepad2.right_bumper)
+                 robot.openClaw();
+            
+            */
+
+            // // Show the elapsed game time and wheel power.
+            // telemetry.addData("Status", "Run Time: " + runtime.toString());
+            // telemetry.addData("Motors", "FrontLeft (%.2f), backLeft (%.2f), FrontRight (%.2f), backRight (%.2f)",frontLeft, robot.backLeft, frontRight, backRight);
+            // telemetry.update();
         }
     }
 }
